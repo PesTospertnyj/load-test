@@ -1,10 +1,11 @@
-.PHONY: help build test run clean load-test seed docker-up docker-down docker-logs docker-seed migrate-up migrate-down migrate-create sqlc-generate openapi-generate
+.PHONY: help build test run clean load-test seed docker-up docker-down docker-logs docker-seed migrate-up migrate-down migrate-create sqlc-generate openapi-generate format
 
 help:
 	@echo "Available targets:"
 	@echo "  build             - Build the application"
 	@echo "  test              - Run all unit tests"
 	@echo "  run               - Run the application locally"
+	@echo "  format            - Format all Go code with gofmt"
 	@echo "  seed-local        - Seed local PostgreSQL database"
 	@echo "  clean             - Clean build artifacts"
 	@echo "  clean-docker      - Remove Docker containers and volumes (PostgreSQL, Redis)"
@@ -116,3 +117,8 @@ sqlc-generate:
 openapi-generate:
 	@echo "Generating OpenAPI server code..."
 	oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+
+format:
+	@echo "Formatting all Go code with gofmt..."
+	gofmt -s -w .
+	@echo "Code formatting complete"
