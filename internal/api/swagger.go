@@ -48,7 +48,7 @@ func ServeSwaggerUI(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to load Swagger UI")
 	}
-	
+
 	c.Response().Header().Set("Content-Type", "text/html; charset=utf-8")
 	return tmpl.Execute(c.Response().Writer, nil)
 }
