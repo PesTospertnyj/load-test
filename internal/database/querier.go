@@ -12,8 +12,9 @@ type Querier interface {
 	CountBooks(ctx context.Context) (int64, error)
 	CreateBook(ctx context.Context, arg CreateBookParams) (Book, error)
 	DeleteBook(ctx context.Context, id int32) error
-	GetAllBooks(ctx context.Context) ([]Book, error)
 	GetBookByID(ctx context.Context, id int32) (Book, error)
+	ListBooks(ctx context.Context) ([]Book, error)
+	ListBooksPaginated(ctx context.Context, arg ListBooksPaginatedParams) ([]Book, error)
 	UpdateBook(ctx context.Context, arg UpdateBookParams) (Book, error)
 }
 

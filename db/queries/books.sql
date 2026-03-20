@@ -7,9 +7,17 @@ RETURNING *;
 SELECT * FROM books
 WHERE id = $1;
 
--- name: GetAllBooks :many
+-- name: ListBooks :many
 SELECT * FROM books
 ORDER BY id;
+
+-- name: ListBooksPaginated :many
+SELECT * FROM books
+ORDER BY id
+LIMIT $1 OFFSET $2;
+
+-- name: CountBooks :one
+SELECT COUNT(*) FROM books;
 
 -- name: UpdateBook :one
 UPDATE books
@@ -20,6 +28,3 @@ RETURNING *;
 -- name: DeleteBook :exec
 DELETE FROM books
 WHERE id = $1;
-
--- name: CountBooks :one
-SELECT COUNT(*) FROM books;

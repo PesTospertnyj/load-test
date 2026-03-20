@@ -25,7 +25,7 @@ func NewPostgresBookRepository(db *pgxpool.Pool) *PostgresBookRepository {
 
 func (r *PostgresBookRepository) Create(book *models.Book) error {
 	ctx := context.Background()
-	
+
 	dbBook, err := r.queries.CreateBook(ctx, database.CreateBookParams{
 		Title:  book.Title,
 		Author: book.Author,
@@ -41,7 +41,7 @@ func (r *PostgresBookRepository) Create(book *models.Book) error {
 
 func (r *PostgresBookRepository) GetByID(id int) (*models.Book, error) {
 	ctx := context.Background()
-	
+
 	dbBook, err := r.queries.GetBookByID(ctx, int32(id))
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -58,30 +58,39 @@ func (r *PostgresBookRepository) GetByID(id int) (*models.Book, error) {
 	}, nil
 }
 
-func (r *PostgresBookRepository) GetAll() ([]*models.Book, error) {
-	ctx := context.Background()
-	
-	dbBooks, err := r.queries.GetAllBooks(ctx)
+func (r *PostgresBookRepository) GetAll(limit, offset int) ([]*models.Book, error) {
+	dbBooks, err := r.queries.ListBooksPaginated(context.Background(), database.ListBooksPaginatedParams{
+		Limit:  int32(limit),
+		Offset: int32(offset),
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	books := make([]*models.Book, 0, len(dbBooks))
-	for _, dbBook := range dbBooks {
-		books = append(books, &models.Book{
+	books := make([]*models.Book, len(dbBooks))
+	for i, dbBook := range dbBooks {
+		books[i] = &models.Book{
 			ID:     int(dbBook.ID),
 			Title:  dbBook.Title,
 			Author: dbBook.Author,
 			ISBN:   dbBook.Isbn,
-		})
+		}
 	}
 
 	return books, nil
 }
 
+func (r *PostgresBookRepository) GetCount() (int, error) {
+	count, err := r.queries.CountBooks(context.Background())
+	if err != nil {
+		return 0, err
+	}
+	return int(count), nil
+}
+
 func (r *PostgresBookRepository) Update(book *models.Book) error {
 	ctx := context.Background()
-	
+
 	dbBook, err := r.queries.UpdateBook(ctx, database.UpdateBookParams{
 		ID:     int32(book.ID),
 		Title:  book.Title,
@@ -101,7 +110,7 @@ func (r *PostgresBookRepository) Update(book *models.Book) error {
 
 func (r *PostgresBookRepository) Delete(id int) error {
 	ctx := context.Background()
-	
+
 	err := r.queries.DeleteBook(ctx, int32(id))
 	if err != nil {
 		if err == sql.ErrNoRows {

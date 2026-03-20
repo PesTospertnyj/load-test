@@ -84,14 +84,14 @@ func main() {
 	repo := repository.NewPostgresBookRepository(pool)
 	log.Info("PostgreSQL repository initialized successfully")
 
-	existingBooks, err := repo.GetAll()
+	existingBooks, err := repo.GetAll(1000, 0)
 	if err != nil {
 		log.WithError(err).Fatal("Failed to check existing books")
 	}
 
 	if len(existingBooks) > 0 {
 		log.WithField("count", len(existingBooks)).Warn("Database already contains books")
-		log.Info("Do you want to continue adding more books? (This will add 10 more)")
+		log.Info("Do you want to continue adding more books? (This will add 10,000 more)")
 	}
 
 	log.Info("Generating 10,000 fake book records...")
@@ -131,15 +131,19 @@ func main() {
 		}).Info("Book created")
 	}
 
-	allBooks, err := repo.GetAll()
+	totalCount, err := repo.GetCount()
 	if err != nil {
-		log.WithError(err).Fatal("Failed to retrieve books")
+		log.WithError(err).Fatal("Failed to count books")
 	}
 
-	log.WithField("total", len(allBooks)).Info("Database seeding completed successfully")
+	log.WithField("total", totalCount).Info("Database seeding completed successfully")
 
-	log.Info("\nBooks in database:")
-	for _, book := range allBooks {
-		fmt.Printf("  [%d] %s by %s (ISBN: %s)\n", book.ID, book.Title, book.Author, book.ISBN)
+	// Get last 100 books to display
+	lastBooks, err := repo.GetAll(100, totalCount-100)
+	if err == nil && len(lastBooks) > 0 {
+		log.Info("\nLast 100 books in database:")
+		for _, book := range lastBooks {
+			fmt.Printf("  [%d] %s by %s (ISBN: %s)\n", book.ID, book.Title, book.Author, book.ISBN)
+		}
 	}
 }

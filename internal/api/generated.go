@@ -45,10 +45,37 @@ type BookInput struct {
 	Title string `json:"title"`
 }
 
+// BooksResponse defines model for BooksResponse.
+type BooksResponse struct {
+	// Books List of books
+	Books []Book `json:"books"`
+
+	// Limit Number of books per page
+	Limit int32 `json:"limit"`
+
+	// Page Current page number
+	Page int32 `json:"page"`
+
+	// Total Total number of books available
+	Total int32 `json:"total"`
+
+	// TotalPages Total number of pages
+	TotalPages int32 `json:"totalPages"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	// Message Error message
 	Message string `json:"message"`
+}
+
+// GetAllBooksParams defines parameters for GetAllBooks.
+type GetAllBooksParams struct {
+	// Page Page number (1-indexed)
+	Page *int32 `form:"page,omitempty" json:"page,omitempty"`
+
+	// Limit Number of books per page
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // CreateBookJSONRequestBody defines body for CreateBook for application/json ContentType.
@@ -61,7 +88,7 @@ type UpdateBookJSONRequestBody = BookInput
 type ServerInterface interface {
 	// Get all books
 	// (GET /books)
-	GetAllBooks(ctx echo.Context) error
+	GetAllBooks(ctx echo.Context, params GetAllBooksParams) error
 	// Create a new book
 	// (POST /books)
 	CreateBook(ctx echo.Context) error
@@ -85,8 +112,24 @@ type ServerInterfaceWrapper struct {
 func (w *ServerInterfaceWrapper) GetAllBooks(ctx echo.Context) error {
 	var err error
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAllBooksParams
+	// ------------- Optional query parameter "page" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "page", ctx.QueryParams(), &params.Page, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter page: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", ctx.QueryParams(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
 	// Invoke the callback with all the unmarshaled arguments
-	err = w.Handler.GetAllBooks(ctx)
+	err = w.Handler.GetAllBooks(ctx, params)
 	return err
 }
 
@@ -186,24 +229,28 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/+xXX2/bNhD/KsStDxumWHLiYImelsxFYSAbsiR9KjKAls4yO4lk+ceNEei7D0fJdhQp",
-	"yzq0jYH2yZJ1f35397s78h4yVWklUToL6T3YbIkVD4/nSv1Nv9oojcYJDP9y75bK0FOONjNCO6EkpEGa",
-	"tR8jwDte6RIhhbOSSzZVUq24hAgqfneBsnBLSA+PjyOohNy8jyNwa0061hkhC6gjEHnf01spPnhkc3Io",
-	"cpROLAR2nI4jWChTcQcpCOmODmFrWkiHBZpg285l3/rs+vwPJn0175qE019ODpLx0WR8mkwmyaNIkm4g",
-	"SQSaO4eGDP71Ljk4Pbj9+RUMxOeEI+uDyWy+PcRws0T2RrFLowrDq0rIgl1wWXhe4Kemto7A4AcvDOaQ",
-	"vqM8b8BEsK1iyNDtVlfN32PmCDbhm0nt3Yvz43sNtzX87+V7bUxTom7pKrSWYPRCCfJs8/lhNCFIqRxb",
-	"KC9zeA7ixkQfFEkKuVDkPFPS8SxwCysuSrLntVbG/dp6HmWqgggkrwKFLmfsuhGACLwhhaVz2qZxXAi3",
-	"9HOSj9fKG2/RkFZcKp4fOLQhH91oz5g2KvcZvR4Y5PmaXb2+vln4kpGnBaWCS15Q6WgIWfZRuCW7VNYV",
-	"Bq//vGBc5uwKc2EhglJkKG1Iagv399lND6bSKK3yJsORMkXcKtmYZHcUC+m2hAIiWKGxDeDxKBklJEZW",
-	"uBaQwtEoGR1BoPAy1DYOSOmpQNev8BU6I3CFjJdlG9SPGc+WmId4j1klpHdomZBNZD9BcGc4GZjlkMIb",
-	"dGdlGRACVd1qRSGQr8Mk2dQVZfDOtS5FFpTj91bJ3eqhJ+GwCoqvDC4ghR/i3ZKK2w0Vh/VUb4nEjeHr",
-	"hkfd0K59lqG1VL4NKFI7/kRM/wal6acB3zNJA4SXzKJZoWHYCkZgfVVxs27ytss6dRAvLPVK835bR6CV",
-	"HSjZbwa5Q8aZxI/NMgw0DFSJ2kkbBSrSOOyVq1EPSWx6FK07V/n6syVltyPq7hhwxmPdY8j4szoeKkaY",
-	"VVkIO2d2y4pyTXSYfB06rHgpctame69o2KPTABXrqJ0j8b3I64aSJbqBjTEN/zPeEHO+ZrNpj4GNTMtA",
-	"zQ2v0KEhh4OrNFgQ9EpDbTf9w9Gly67oQcKePQjWtz0uTp7Y5k20L0ye2bRxOfnyLh9t932ia4dgg1Pz",
-	"mT3HrJBFiVuCCmfZbPp/th5l6Xwd6LlXLE6++ER9YrV+b4eXOUR0h+3AOcIPdMRbnYe5LxneCes2h9on",
-	"ZnYjvScz+8XPLMnXObP4kPT9ObN86822aZknj0kkHdSHGmOKKyyVrlC61knnNpjGcakyXi6VdelJckIX",
-	"u8cmLrf30yELdJ/kWowe3pWpYVqYg40aLrQYMG0b3u76tYmsvq3/CQAA//+lFkWqLxQAAA==",
+	"H4sIAAAAAAAC/+xYXW/bNhT9KwTXhw5TLDlxsFZPa+qiMJAVWZI+FRlAS9cyO/Gj5KUbo/B/H0jKshWp",
+	"TTq0jYH1KbF1eT/PObzyJ1oooZUEiZbmn6gtliBY+PdMqX/8X22UBoMcwrfM4VIZ/18JtjBcI1eS5sGa",
+	"NA8TCrdM6BpoTl/UTJKpkmrFJE2oYLfnICtc0vz49DShgsvt53FCca39GYuGy4puEsrLfqS3kn9wQOY+",
+	"IC9BIl9w6AQdJ3ShjGBIc8olnhzT1jWXCBWY4NvOZd/77OrsDZFOzLsu6fPfnx1l45PJ+Hk2mWR3Ksm6",
+	"hWQJ1QwRjHf497vs6PnRzW9P6EB9yNF7H2xmfLafw/USyGtFLoyqDBOCy4qcM1k5VsHXtnaTUAMfHDdQ",
+	"0vyd7/M2mYS2UwwdumnPqvl7KNCn7fObSe3w0fHxc4btDL9ufPYSrFbSQn+Enlm2X9A5t0jUgsTHCeUI",
+	"Ipg9MbCgOf0l3UlJ2uhIGkRk0+bAjGFr/7nmgmM/xpswtDYK0WCIjq1pW3h8+iB6h2O9AC+dMSAxOB2A",
+	"yMOUAxWyuu/72n/dON2VwFaM12zehcE4y7Ls4bEuWAX2/oA6mO2FmTwoyB0cbecbq2wauZ1YJ6EhbL0y",
+	"JtK/iykB1g4OJNiT7eN9pgQCSYVkoZws6X3w37roJ+UtuVwoH7xQElkRkAeC8dr7c1org380kUeFEjSh",
+	"kokgTxczchUNaEKd8QeWiNrmaVpxXLq5t0/XyhlnwfhTaa1YeYRgQz+61b4g2qjSFf7jkQFWrsnlq6vr",
+	"hauJj7TwrWCSVV4WInw+clySC2WxMnD11zlhsiSXUHIbRlJAw+Am3T9n1700lQZplTMFjJSp0uaQTb3t",
+	"Tr6iKPgsaEJXYGxMeDzKRpk3816Y5jSnJ6NsdBJwgcsw27QVjAoGOH0JaDisYL8g7Utk3oA8LVixhDLU",
+	"fkoElw7BEi5jlb/SENoE21lJc/oa8EVdnzUg1cwwAQjG0vzd3cgXO5KTp+MjLku4hdK75P7xBwdmvRt1",
+	"g/OoXLGMBXM1DquC4JILJ/Z1eY9QX6FrQ6lsuTaQy6D6CXbbJJNl96R241kTlT+M7DjLtrwAGabHtK55",
+	"ERqevrdK7tbCh4j97l4JvOu24coVBVjr4W5as4ROvmEOUX8GYs/kitW83IfeHng2CT39MVn4lYLVxIJZ",
+	"gSHQGCbUOiGYWUeEE1bX7UWLrLI7Yb7xd5uyA0R7aYAhEEYkfIzrceBaIHjS7F5JEBC/IPWIFY+HCzsq",
+	"K1g8U+X6m8Ijbo2brnijcbDp4XL8TQMPDSPcMEUouyS2xWa9/uGgbNp9UDDswWkAipukUf/0Ey83EZI1",
+	"4MA9Pw3fExaBOV+T2bSHwGjTIPCLyh4mFzwE+fRX0U49w8tMF137Unr/PtTXyMln9vtY7SODZzaNISff",
+	"P+SdneyQ4NoB2KBqfnk7YcRyWdXQApSjJbPpf9lPfJfO1gGeB4Xi7Lsr6iFc8D/p0C4RXbEd2CPcACPe",
+	"6jLoviRwyy1uX0U+o9nR+kA0+9F3luzH7CwuNP1wdpb/O9m2lPnsmuStw/EhYkxhBbXSAiQ2QTrv8Hma",
+	"1qpg9VJZzJ9lz/zreO9Nt/1VYciDzdOUaT7a/4XDE6ZJc5Co4WcICDm1hLc7vsbKNjebfwMAAP//f2vv",
+	"LEEYAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

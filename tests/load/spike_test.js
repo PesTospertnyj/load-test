@@ -43,9 +43,17 @@ export default function () {
 
   sleep(0.1);
 
-  const getAllRes = http.get(`${BASE_URL}/books`);
+  const getAllRes = http.get(`${BASE_URL}/books?page=1&limit=25`);
   const getAllSuccess = check(getAllRes, {
     'get all status is 200': (r) => r.status === 200,
+    'get all returns paginated response': (r) => {
+      try {
+        const body = JSON.parse(r.body);
+        return body.books !== undefined && body.total !== undefined;
+      } catch (e) {
+        return false;
+      }
+    },
   });
 
   errorRate.add(!getAllSuccess);

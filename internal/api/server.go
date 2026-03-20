@@ -2,13 +2,16 @@ package api
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"load-test/internal/cache"
 	"load-test/internal/models"
 	"load-test/internal/repository"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 )
 
 type BooksAPIServer struct {
@@ -24,28 +27,90 @@ func NewBooksAPIServer(repo repository.Repository, cache cache.CacheInterface) *
 }
 
 // GetAllBooks implements ServerInterface
-func (s *BooksAPIServer) GetAllBooks(ctx echo.Context) error {
-	if books, found := s.cache.GetAllBooks(); found {
-		apiBooks := make([]Book, len(books))
-		for i, book := range books {
-			apiBooks[i] = toAPIBook(book)
-		}
-		return ctx.JSON(http.StatusOK, apiBooks)
+func (s *BooksAPIServer) GetAllBooks(ctx echo.Context, params GetAllBooksParams) error {
+	// Set defaults
+	page := int32(1)
+	limit := int32(25)
+
+	// Parse parameters
+	if params.Page != nil && *params.Page > 0 {
+		page = *params.Page
+	}
+	if params.Limit != nil && *params.Limit > 0 && *params.Limit <= 100 {
+		limit = *params.Limit
 	}
 
-	books, err := s.repo.GetAll()
+	// Check cache first
+	if cachedBooks, found := s.cache.GetBooksPaginated(int(page), int(limit)); found {
+		// Get total count for response
+		total, err := s.repo.GetCount()
+		if err != nil {
+			return ctx.JSON(http.StatusInternalServerError, Error{Message: "Failed to count books"})
+		}
+
+		// Convert to API books
+		apiBooks := make([]Book, len(cachedBooks))
+		for i, book := range cachedBooks {
+			apiBooks[i] = toAPIBook(book)
+		}
+
+		// Calculate total pages
+		totalPages := int32(total) / limit
+		if int32(total)%limit != 0 {
+			totalPages++
+		}
+
+		response := BooksResponse{
+			Books:      apiBooks,
+			Total:      int32(total),
+			Page:       page,
+			Limit:      limit,
+			TotalPages: totalPages,
+		}
+
+		return ctx.JSON(http.StatusOK, response)
+	}
+
+	// Calculate offset from page number (page is 1-indexed)
+	offset := (page - 1) * limit
+
+	// Get total count
+	total, err := s.repo.GetCount()
+	if err != nil {
+		return ctx.JSON(http.StatusInternalServerError, Error{Message: "Failed to count books"})
+	}
+
+	// Get paginated books from database
+	books, err := s.repo.GetAll(int(limit), int(offset))
 	if err != nil {
 		return ctx.JSON(http.StatusInternalServerError, Error{Message: "Failed to retrieve books"})
 	}
 
-	s.cache.SetAllBooks(books)
+	// Cache the result
+	s.cache.SetBooksPaginated(int(page), int(limit), books)
 
+	// Convert to API books
 	apiBooks := make([]Book, len(books))
 	for i, book := range books {
 		apiBooks[i] = toAPIBook(book)
 	}
 
-	return ctx.JSON(http.StatusOK, apiBooks)
+	// Calculate total pages
+	totalPages := int32(total) / limit
+	if int32(total)%limit != 0 {
+		totalPages++
+	}
+
+	// Build response
+	response := BooksResponse{
+		Books:      apiBooks,
+		Total:      int32(total),
+		Page:       page,
+		Limit:      limit,
+		TotalPages: totalPages,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
 // CreateBook implements ServerInterface
@@ -66,10 +131,19 @@ func (s *BooksAPIServer) CreateBook(ctx echo.Context) error {
 	}
 
 	if err := s.repo.Create(book); err != nil {
-		return ctx.JSON(http.StatusInternalServerError, Error{Message: "Failed to create book"})
+		// Check for duplicate ISBN constraint violation
+		if strings.Contains(err.Error(), "duplicate key value") ||
+			strings.Contains(err.Error(), "unique constraint") ||
+			strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return ctx.JSON(http.StatusConflict, Error{Message: "Book with this ISBN already exists"})
+		}
+
+		logrus.Errorf("Failed to create book: %v", err)
+
+		return ctx.JSON(http.StatusInternalServerError, Error{Message: fmt.Sprintf("Failed to create book: %v", err)})
 	}
 
-	s.cache.InvalidateAll()
+	s.cache.InvalidateAllPaginated()
 
 	return ctx.JSON(http.StatusCreated, toAPIBook(book))
 }
@@ -120,7 +194,7 @@ func (s *BooksAPIServer) UpdateBook(ctx echo.Context, id int32) error {
 		return ctx.JSON(http.StatusInternalServerError, Error{Message: "Failed to update book"})
 	}
 
-	s.cache.InvalidateAll()
+	s.cache.InvalidateAllPaginated()
 	s.cache.InvalidateBook(int(id))
 
 	return ctx.JSON(http.StatusOK, toAPIBook(book))
@@ -137,7 +211,7 @@ func (s *BooksAPIServer) DeleteBook(ctx echo.Context, id int32) error {
 		return ctx.JSON(http.StatusInternalServerError, Error{Message: "Failed to delete book"})
 	}
 
-	s.cache.InvalidateAll()
+	s.cache.InvalidateAllPaginated()
 	s.cache.InvalidateBook(bookID)
 
 	return ctx.NoContent(http.StatusNoContent)

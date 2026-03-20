@@ -56,13 +56,32 @@ func (q *Queries) DeleteBook(ctx context.Context, id int32) error {
 	return err
 }
 
-const getAllBooks = `-- name: GetAllBooks :many
+const getBookByID = `-- name: GetBookByID :one
+SELECT id, title, author, isbn, created_at, updated_at FROM books
+WHERE id = $1
+`
+
+func (q *Queries) GetBookByID(ctx context.Context, id int32) (Book, error) {
+	row := q.db.QueryRow(ctx, getBookByID, id)
+	var i Book
+	err := row.Scan(
+		&i.ID,
+		&i.Title,
+		&i.Author,
+		&i.Isbn,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listBooks = `-- name: ListBooks :many
 SELECT id, title, author, isbn, created_at, updated_at FROM books
 ORDER BY id
 `
 
-func (q *Queries) GetAllBooks(ctx context.Context) ([]Book, error) {
-	rows, err := q.db.Query(ctx, getAllBooks)
+func (q *Queries) ListBooks(ctx context.Context) ([]Book, error) {
+	rows, err := q.db.Query(ctx, listBooks)
 	if err != nil {
 		return nil, err
 	}
@@ -88,23 +107,42 @@ func (q *Queries) GetAllBooks(ctx context.Context) ([]Book, error) {
 	return items, nil
 }
 
-const getBookByID = `-- name: GetBookByID :one
+const listBooksPaginated = `-- name: ListBooksPaginated :many
 SELECT id, title, author, isbn, created_at, updated_at FROM books
-WHERE id = $1
+ORDER BY id
+LIMIT $1 OFFSET $2
 `
 
-func (q *Queries) GetBookByID(ctx context.Context, id int32) (Book, error) {
-	row := q.db.QueryRow(ctx, getBookByID, id)
-	var i Book
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Author,
-		&i.Isbn,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
+type ListBooksPaginatedParams struct {
+	Limit  int32 `json:"limit"`
+	Offset int32 `json:"offset"`
+}
+
+func (q *Queries) ListBooksPaginated(ctx context.Context, arg ListBooksPaginatedParams) ([]Book, error) {
+	rows, err := q.db.Query(ctx, listBooksPaginated, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Book{}
+	for rows.Next() {
+		var i Book
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Author,
+			&i.Isbn,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateBook = `-- name: UpdateBook :one

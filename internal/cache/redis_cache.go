@@ -25,17 +25,9 @@ func NewRedisCache(client *redis.Client, ttl time.Duration) *RedisCache {
 	}
 }
 
-func (c *RedisCache) SetAllBooks(books []*models.Book) {
-	data, err := json.Marshal(books)
-	if err != nil {
-		return
-	}
-
-	c.client.Set(c.ctx, "books:all", data, c.ttl)
-}
-
-func (c *RedisCache) GetAllBooks() ([]*models.Book, bool) {
-	data, err := c.client.Get(c.ctx, "books:all").Result()
+func (c *RedisCache) GetBooksPaginated(page, limit int) ([]*models.Book, bool) {
+	key := fmt.Sprintf("books:page:%d:limit:%d", page, limit)
+	data, err := c.client.Get(c.ctx, key).Result()
 	if err != nil {
 		return nil, false
 	}
@@ -48,13 +40,12 @@ func (c *RedisCache) GetAllBooks() ([]*models.Book, bool) {
 	return books, true
 }
 
-func (c *RedisCache) SetBook(book *models.Book) {
-	data, err := json.Marshal(book)
+func (c *RedisCache) SetBooksPaginated(page, limit int, books []*models.Book) {
+	key := fmt.Sprintf("books:page:%d:limit:%d", page, limit)
+	data, err := json.Marshal(books)
 	if err != nil {
 		return
 	}
-
-	key := fmt.Sprintf("book:%d", book.ID)
 	c.client.Set(c.ctx, key, data, c.ttl)
 }
 
@@ -73,18 +64,29 @@ func (c *RedisCache) GetBook(id int) (*models.Book, bool) {
 	return &book, true
 }
 
-func (c *RedisCache) InvalidateAll() {
-	pattern := "book:*"
+func (c *RedisCache) SetBook(book *models.Book) {
+	key := fmt.Sprintf("book:%d", book.ID)
+	data, err := json.Marshal(book)
+	if err != nil {
+		return
+	}
+	c.client.Set(c.ctx, key, data, c.ttl)
+}
+
+func (c *RedisCache) InvalidateAllPaginated() {
+	// Invalidate all paginated book lists
+	pattern := "books:page:*"
 	iter := c.client.Scan(c.ctx, 0, pattern, 0).Iterator()
 	for iter.Next(c.ctx) {
 		c.client.Del(c.ctx, iter.Val())
 	}
-
-	c.client.Del(c.ctx, "books:all")
 }
 
 func (c *RedisCache) InvalidateBook(id int) {
+	// Invalidate single book cache
 	key := fmt.Sprintf("book:%d", id)
 	c.client.Del(c.ctx, key)
-	c.client.Del(c.ctx, "books:all")
+
+	// Invalidate all paginated lists since they may contain this book
+	c.InvalidateAllPaginated()
 }
