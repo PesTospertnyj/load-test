@@ -121,10 +121,10 @@ openapi-generate:
 
 format:
 	@echo "Formatting all Go code with gofmt..."
-	gofmt -s -w .
+	gofmt -s -w ./..
 	@echo "Code formatting complete"
 
 goimports:
 	@echo "Organizing imports and formatting code with goimports..."
-	goimports -w .
+	goimports -w ./..
 	@echo "Import organization complete"
