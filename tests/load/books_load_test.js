@@ -75,14 +75,16 @@ export default function () {
 
   sleep(0.1);
 
-  const getAllRes = http.get(`${BASE_URL}/books?page=1&limit=25`);
+  // Sequential pagination: cycle through pages
+  const page = Math.floor(__ITER / 10) + 1;
+  const getAllRes = http.get(`${BASE_URL}/books?page=${page}&limit=25`);
   const getAllSuccess = check(getAllRes, {
     'get all books status is 200': (r) => r.status === 200,
     'get all books returns paginated response': (r) => {
       try {
         const body = JSON.parse(r.body);
         return body.books !== undefined && Array.isArray(body.books) &&
-               body.total !== undefined && body.page === 1 && body.limit === 25;
+               body.total !== undefined && body.page === page && body.limit === 25;
       } catch (e) {
         return false;
       }
